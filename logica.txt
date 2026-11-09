@@ -1,0 +1,117 @@
+1 indicar o local dos xmls
+    1.1 - com import os
+
+2 mapear oq é nf -  procurar nas pastas o arquivo com final XML
+
+3 procurar pela identificação no tpNF, se for 1 - venda, 0 - devolução
+    -> Se for 1 inserir na aba vendas do excel
+    COLETA NO XML - COLUNAS DA PLANILHA
+    3.1-PLATAFORMA - pelo local das pastas que foi encontrado o xml
+    3.2-MES - pelo local das pastas que foi encontrado o xml
+    3.3-DATA DE EMISSÃO - no xml <ide> = <dhEmi>
+    3.4-SEMANA - contabiliza por função
+    3.5-NOME - xml <dest> = <xNome>
+    3.6-CPF/CNPJ - calcula se esta no campo <dest> CPF ou CNPJ
+        3.6.1 Se for CPF => indicar na celula o nome CPF
+        3.6.2 Se for CNPJ => Indicar o CNPJ
+    3.7-NOTA - campo do xml <nNF>
+    3.8-ESTADO - campo xml <UF>
+    3.9-QTD - <prod> = <qCom>
+    3.10-SKU - <prod> = <cProd>
+    3.11-METRAGEM DA VENDA - pega a informação da descrição que estiver com nome 'metros, mt' se o modelo for igual a MANG
+    3.12-MODELO - pega de acordo com começo do codigo sku
+    3.13-METROS TOTAL - se modelo for MANG -> multiplicar quantidade pelo campo metros
+    3.14-VALOR = se for dois itens diferentes na mesma nota.
+        3.14.1 - Acesse o cabeçalho/totais da nota fiscal (tag <ICMSTot>).
+                Memorize três valores: o Valor Total dos Produtos (vProd), o Valor Total do Frete (vFrete) e o Valor Total do Desconto (vDesc).
+        3.14.2 - Para cada item (produto) encontrado na nota fiscal (tag <det>), o sistema fará um ciclo de cálculo isolado.
+        3.14.3 - Pegue o Valor Bruto do Produto daquele item específico.
+                Pegue o Valor do IPI daquele item específico (se houver). Se não tiver IPI, considere zero.
+        3.14.4 - Divida o Valor Bruto do Produto do item pelo Valor Total dos Produtos da Nota (valor que foi memorizado na Etapa 1).
+                O resultado será uma fração decimal (por exemplo, 0.25 se o item representar 25% do bolo total do pedido). 
+        3.14.5 - Frete do Item: Multiplique o Frete Total da Nota pela fração decimal do item encontrada na Etapa 4.
+                Desconto do Item: Multiplique o Desconto Total da Nota pela fração decimal do item encontrada na Etapa 4.
+        3.14.6 - O Valor Final da Venda do Item será a soma e subtração dos pedaços:
+                    (Valor do Produto + IPI) + Frete Proporcional - Desconto Proporcional
+
+        VALOR = se for um iten só pegar o valor total <vPag>
+
+    -> Se for 0 inserir na aba devoluções do excel
+    COLETA NO XML - COLUNAS DA PLANILHA
+    3.1-PLATAFORMA - pelo local das pastas que foi encontrado o xml
+    3.2-MES - pelo local das pastas que foi encontrado o xml
+    3.3-SEMANA - contabiliza por função
+    3.4-SKU - <prod> = <cProd>
+    3.5 PRODUTO - <xNome>
+    3.6-QTD - <prod> = <qCom>
+    3.7-CPF/CNPJ - calcula se esta no campo <dest> CPF ou CNPJ
+        3.7.1 Se for CPF => indicar na celula o nome CPF
+        3.7.2 Se for CNPJ => Indicar o CNPJ
+    3.8-NF Venda -  <infAdic> -> <infCpl> contar ate o caracter 30 e armazenar 4 caracter 30 ate 34  
+    3.9-MOTIVO - ""
+    3.10-NF Devolução - campo do xml <nNF>
+    3.11-ESTADO - campo xml <UF>
+    3.12-DATA DE DEVOLUÇÃO - no xml <ide> = <dhEmi>
+    3.13-VALOR = se for um iten só pegar o valor total <vPag>
+    3.14-DIAS EM USO = DATA DE DEVOLUÇÃO - DATA DE VENDA(<infAdic> -> <infCpl>: caracter 77 até 86)
+
+
+
+4 se for 1: indicar os campos de coleta e o local no excel para ser inserido:
+    
+
+    4.15-STATUS - depende do que foi indicado na <tpNF> 1 - "venda" e 0 "cancelado"
+
+## 🗺️ Mapa da Lógica (Fluxo do Processamento)
+
+* 1. Configuração Inicial
+* Indicar o caminho da pasta onde estão os XMLs e o caminho onde o Excel será salvo (usando o import os globalmente).
+   * Preparar duas listas de dados separadas: uma para as Vendas e outra para as Devoluções.
+* 2. Varredura de Arquivos
+* Usar uma função de busca (os.walk) para andar por todas as pastas e subpastas.
+   * Filtrar e abrir apenas os arquivos que terminam com .xml.
+* 3. Identificação e Triagem (tpNF)
+* Ler a tag <tpNF> de cada XML para decidir o destino do documento:
+   * Se tpNF for 1: O documento é tratado como Venda e vai para a aba de Vendas.
+      * Se tpNF for 0: O documento é tratado como Cancelado/Devolução e vai para a aba de Devoluções.
+   * 4. Regra de Coleta: Se for 1 (Venda)
+* Campos de Identificação:
+   * PLATAFORMA e MÊS: Extraídos pelo nome da pasta onde o XML foi encontrado.
+      * DATA DE EMISSÃO: Capturada na tag <dhEmi>.
+      * SEMANA: Calculada matematicamente a partir da data de emissão.
+      * NOME: Capturado na tag <xNome>.
+      * CPF/CNPJ: Verifica a tag ativa. Se for CPF, escreve a palavra "CPF". Se for CNPJ, escreve o número do CNPJ.
+      * NOTA: Capturada na tag <nNF>.
+      * ESTADO: Capturado na tag <UF>.
+      * QTD e SKU: Capturados nas tags <qCom> e <cProd>.
+   * Regra de Metragem (Mangueiras):
+   * Se o SKU começar com "MANG", procura as palavras "metros" ou "mt" na descrição para definir a METRAGEM DA VENDA.
+      * Define o MODELO como "MANG".
+      * Calcula os METROS TOTAL multiplicando a quantidade pela metragem encontrada.
+   * Regra de Valor (Venda):
+   * Se a nota tiver 1 item só: O valor do item será o valor total pago (<vPag>).
+      * Se a nota tiver 2 ou mais itens: Faz o Rateio Proporcional. Salva os totais da nota (vProd, vFrete, vDesc). Calcula o peso de cada item (vProd do item / vProd Total) e distribui o frete e o desconto de forma justa. A fórmula final é: (Valor do Produto + IPI) + Frete Proporcional - Desconto Proporcional.
+   * STATUS: Preenche como "Vendido" e o Tipo de Operação como "Venda".
+* 5. Regra de Coleta: Se for 0 (Devolução)
+* Campos de Identificação:
+   * PLATAFORMA e MÊS: Extraídos pelo nome da pasta.
+      * DATA DE DEVOLUÇÃO: Capturada na tag <dhEmi>.
+      * SEMANA: Calculada matematicamente a partir da data de devolução.
+      * SKU e QTD: Capturados nas tags <cProd> e <qCom>.
+      * PRODUTO: Capturado na tag <xNome> do destinatário.
+      * CPF/CNPJ: Mesma regra da venda (Escreve "CPF" se for CPF, ou o número se for CNPJ).
+      * NF Devolução e ESTADO: Capturados nas tags <nNF> e <UF>.
+      * MOTIVO: Fica como uma célula em branco ("").
+   * Regra de Texto Complementar (<infCpl>):
+   * NF Venda: O código vai até a tag de informações complementares, conta até o caractere 30 e guarda os 4 caracteres seguintes (posição 30 até 34).
+      * DIAS EM USO: Vai até o caractere 77 da mesma tag e pega até o caractere 86 para descobrir a Data da Venda. Depois, subtrai a Data da Venda da Data de Devolução para descobrir a quantidade de dias.
+   * Regra de Valor (Devolução):
+   * Se tiver apenas 1 item, pega o valor total (<vPag>). Se tiver mais itens, pega o valor bruto do produto (vProd do item).
+   * STATUS: Preenche como "Cancelado" e o Tipo de Operação como "Devolução".
+* 6. Gravação Final
+* Converte a lista de vendas e a lista de devoluções em duas tabelas separadas.
+   * Gera um único arquivo Excel com duas abas nomeadas e independentes.
+
+------------------------------
+Qual dessas etapas você quer começar a escrever primeiro no seu código? Posso te guiar no passo a passo de como estruturar a função que faz o corte de caracteres ou o cálculo de semanas!
+
